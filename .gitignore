@@ -1,3 +1,5 @@
 *.exe
 *.ilk
 *.pdb
+**/node_modules
+**/out
