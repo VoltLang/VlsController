@@ -69,6 +69,21 @@
 		],
 		"description": "Interface Declaration\n\nDeclares a list of methods that a class may implement to be treated as an interface instance."
 	},
+	"Enum": {
+		"prefix": "enum",
+		"body": [
+			"enum ${1:name}",
+			"{",
+			"\t$0",
+			"}"
+		],
+		"description": "Enum\n\nA list of constants."
+	},
+	"Enum Declaration": {
+		"prefix": "enum",
+		"body": "enum ${1:name} = $0;",
+		"description": "Enum Declaration\n\nA short hand way of writing enum constants."
+	},
 
 	// Statement
 	"For Loop": {
