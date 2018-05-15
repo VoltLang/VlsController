@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSL-1.0
 module main;
 
+import lsp = vls.lsp;
 import watt = [watt.path, watt.io, watt.io.file, watt.process.spawn];
 
 fn main(args: string[]) i32
