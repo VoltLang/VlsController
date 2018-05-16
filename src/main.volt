@@ -4,6 +4,7 @@ module main;
 
 import lsp = vls.lsp;
 import watt = [watt.path, watt.io, watt.io.file, watt.process.spawn];
+import vlsc.util.aio;
 
 fn main(args: string[]) i32
 {
