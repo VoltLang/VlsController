@@ -16,7 +16,6 @@ import watt.conv;
 import watt.text.utf;
 import watt.text.sink;
 
-
 /*!
  * Write and read to long lived process's stdin and stdout.  
  *
@@ -36,11 +35,11 @@ public:
 		ProcessComplete,    //!< The process has exited.
 	}
 
+	alias ReportDelegate = scope dg(AsyncProcess, InterruptReason);
+
 private:
-	mProcesses: AsyncProcess[size_t];
-	mWakeUpReason: InterruptReason;
-	mWakeUpId: size_t;
-	mDiedTooYoung: size_t[];  // Processes that died before we had a chance to issue an APC call.
+	mProcesses: AsyncProcess[];
+	mRunning: bool = true;
 
 public:
 	/*!
@@ -65,99 +64,64 @@ public:
 	 * @Param args Command line argument to pass to the process (if any).
 	 * @Returns The `AsyncProcess` object that was created.
 	 */
-	fn spawn(id: size_t, filename: string, args: string[]) AsyncProcess
+	fn spawn(dgt: ReportDelegate, filename: string, args: string[]) AsyncProcess
 	{
-		p := new AsyncProcess(filename, args, this, id);
+		p := new AsyncProcess(filename, args, this, dgt);
 		p.zeroOverlapped();
 		p.startRead();
-		mProcesses[id] = p;
+		mProcesses ~= p;
 		return p;
 	}
 
-	/*!
-	 * Get the return value of the process associated with `id`.
-	 */
-	fn getRetval(id: size_t) u32
+	//! Like `spawn`, but spawn over an old process's slot.
+	fn respawn(oldProcess: AsyncProcess, filename: string, args: string[]) AsyncProcess
 	{
-		p := id in mProcesses;
-		if (p is null) {
-			throw new Exception("passed invalid process id to AsyncProcessPool.getRetval");
+		foreach (ref process; mProcesses) {
+			if (process is oldProcess) {
+				process = new AsyncProcess(filename, args, this, oldProcess.mReportDelegate);
+				process.zeroOverlapped();
+				process.startRead();
+				return process;
+			}
 		}
-		retval: u32;
-		if (p.isAlive(out retval)) {
-			throw new Exception("called AsyncProcessPool.getRetval for a running process");
-		}
-		return retval;
+		throw new Exception("AsyncProcessPool.replace oldProcess not in process table");
 	}
 
 	/*!
-	 * Get the input read from the process associated with `id`.  
-	 * This clears the internal buffer, and starts a new async read operation;
-	 * if you discard this data, there's no way to retrieve it.
+	 * Break from the `loop`.  
+	 * This won't cause any client processes to quit.  
+	 * If you want them to quit, you'll have to arrange a way of telling them to.
 	 */
-	fn getReadResult(id: size_t) string
+	fn stopLooping()
 	{
-		p := id in mProcesses;
-		if (p is null) {
-			throw new Exception("passed invalid process id to AsyncProcessPool.getReadResult");
-		}
-		str := p.mStringSink.toString();
-		p.mStringSink.reset();
-		p.zeroOverlapped();
-		p.startRead();
-		return str;
+		mRunning = false;
 	}
 
-	fn wait(out id: size_t) InterruptReason
+	/*!
+	 * Report events (read completion, process end) that occur
+	 * to processes managed by this pool.
+	 */
+	fn loop()
 	{
-		if (mDiedTooYoung.length != 0) {
-			id = mDiedTooYoung[0];
-			mDiedTooYoung = mDiedTooYoung[1 .. $];
-			return InterruptReason.ProcessComplete;
-		}
-		while (true) {
-			mWakeUpReason = InterruptReason.Invalid;
+		while (mRunning) {
+			foreach (process; mProcesses) {
+				if (process.mDead) {
+					process.mReportDelegate(process, InterruptReason.ProcessComplete);
+				}
+			}
 			SleepEx(INFINITE, TRUE);
-			if (mWakeUpReason == InterruptReason.Invalid) {
-				throw new Exception("woke up with no reason set");
-			}
-			if (mWakeUpReason == InterruptReason.ReadContinues) {
-				continue;
-			}
-			break;
 		}
-		retval: u32;
-		p := mProcesses[mWakeUpId];
-		if (!p.isAlive(out retval) && mWakeUpReason != InterruptReason.ProcessComplete) {
-			// Let the user get the input, but call it dead next time wait is called.
-			mDiedTooYoung ~= p.mId;
-			p.mDead = true;
-		}
-
-		assert(mWakeUpReason != InterruptReason.Invalid);
-		assert(mWakeUpReason != InterruptReason.ReadContinues);
-		id = mWakeUpId;
-		return mWakeUpReason;
 	}
 
 private:
-	fn readContinues(id: size_t)
+	fn readComplete(process: AsyncProcess)
 	{
-		mWakeUpId = id;
-		mWakeUpReason = InterruptReason.ReadContinues;
-	}
-
-	fn readComplete(id: size_t)
-	{
-		mWakeUpId = id;
-		mWakeUpReason = InterruptReason.ReadComplete;
+		process.mReportDelegate(process, InterruptReason.ReadComplete);
     }
 
-	fn processComplete(id: size_t)
+	fn processComplete(process: AsyncProcess)
 	{
-		mWakeUpId = id;
-		mWakeUpReason = InterruptReason.ProcessComplete;
-		mProcesses[id].mDead = true;
+		process.mReportDelegate(process, InterruptReason.ProcessComplete);
 	}
 }
 
@@ -173,9 +137,21 @@ class AsyncProcess
 public:
 	enum BufSize = 1024;
 
+public:
+	closedRetval: u32;
+
+	fn readResult() string
+	{
+		str := mStringSink.toString();
+		mStringSink.reset();
+		zeroOverlapped();
+		startRead();
+		return str;
+	}
+
 private:
 	mPool: AsyncProcessPool;
-	mId: size_t;
+	mReportDelegate: AsyncProcessPool.ReportDelegate;
 
 	mProcessHandle: HANDLE;
 	/* We keep and manage the handles here, rather than
@@ -192,16 +168,16 @@ private:
 
 
 private:
-	global gId: u64;
+	global gId: u64;  // For the pipe name.
 
 public:
 	/*!
 	 * Spawn a process from a path to an executable file.
 	 */
-	this(filename: string, args: string[], pool: AsyncProcessPool, id: size_t)
+	this(filename: string, args: string[], pool: AsyncProcessPool, reportDelegate: AsyncProcessPool.ReportDelegate)
 	{
 		mPool = pool;
-		mId = id;
+		mReportDelegate = reportDelegate;
 		createPipes();
 		spawn(filename, args);
 	}
@@ -241,7 +217,8 @@ public:
 			err := GetLastError();
 			throw new Exception(new "GetExitCodeProcess failure ${err}");
 		}
-		return retval == STILL_ACTIVE;
+		mDead = !(retval == STILL_ACTIVE);
+		return !mDead;
 	}
 
 	/*!
@@ -289,12 +266,19 @@ private:
 	 */
 	fn readContent()
 	{
+		if (mDead) {
+			return;
+		}
 		dwRead, dwAvail, dwThisMessage: DWORD;
 		bResult := PeekNamedPipe(mServerInput, null, 0, &dwRead, &dwAvail, &dwThisMessage);
 		checkErrorInAPC("PeekNamedPipe", bResult == 0);
 
 		if (dwAvail == 0) {
-			mPool.readComplete(mId);
+			mPool.readComplete(this);
+			return;
+		}
+
+		if (mDead) {
 			return;
 		}
 
@@ -303,8 +287,6 @@ private:
 		bResult = ReadFileEx(mServerInput, cast(void*)mReadBuffer.ptr,
 			cast(DWORD)mReadBuffer.length, &mReadOverlapped, readRoutine);
 		checkErrorInAPC("ReadFileEx", bResult == 0);
-
-		mPool.readContinues(mId);
 	}
 
 	// Zero the OVERLAPPED struct for this process.
@@ -317,6 +299,9 @@ private:
 	// Start watching this process for available input.
 	fn startRead()
 	{
+		if (mDead) {
+			return;
+		}
 		if (mReadOverlapped.hEvent !is null) {
 			throw new Exception("startEvent() called before completion of previous read");
 		}
@@ -335,10 +320,8 @@ private:
 		bResult := WriteFile(mServerOutput, ptr, len, &dwWritten, null);
 		if (bResult == 0) {
 			err := GetLastError();
-			retval: u32;
-			if (!isAlive(out retval)) {
-				mDead = true;
-				mPool.mDiedTooYoung ~= mId;
+			if (!isAlive(out closedRetval)) {
+				mReportDelegate(this, AsyncProcessPool.InterruptReason.ProcessComplete);
 				return;
 			}
 			throw new Exception(new "WriteFile failure ${err}");
@@ -354,8 +337,8 @@ private:
 		if (isError) {
 			err := GetLastError();
 			retval: u32;
-			if (!isAlive(out retval)) {
-				mPool.processComplete(mId);
+			if (!isAlive(out closedRetval)) {
+				mReportDelegate(this, AsyncProcessPool.InterruptReason.ProcessComplete);
 				return;
 			}
 			throw new Exception(new "${functionName} failure ${err}");
@@ -437,7 +420,6 @@ extern (Windows) fn readProbeRoutine(dwErrorCode: DWORD, dwNumberOfBytesTransfer
 {
 	process := cast(AsyncProcess)lpOverlapped.hEvent;
 	if (process.mDead) {
-		process.mPool.readContinues(process.mId);
 		return;
 	}
 	process.readContent();
@@ -448,7 +430,6 @@ extern (Windows) fn readRoutine(dwErrorCode: DWORD, dwNumberOfBytesTransferred: 
 {
 	process := cast(AsyncProcess)lpOverlapped.hEvent;
 	if (process.mDead) {
-		process.mPool.readContinues(process.mId);
 		return;
 	}
 	process.mStringSink.sink(cast(string)process.mReadBuffer[0 .. dwNumberOfBytesTransferred]);
