@@ -104,13 +104,18 @@ public:
 	fn loop()
 	{
 		while (mRunning) {
-			foreach (process; mProcesses) {
-				if (process.mDead) {
-					process.mReportDelegate(process, InterruptReason.ProcessComplete);
-				}
-			}
-			SleepEx(INFINITE, TRUE);
+			waitOnce();
 		}
+	}
+
+	fn waitOnce()
+	{
+		foreach (process; mProcesses) {
+			if (process.mDead) {
+				process.mReportDelegate(process, InterruptReason.ProcessComplete);
+			}
+		}
+		SleepEx(INFINITE, TRUE);
 	}
 
 private:

@@ -28,14 +28,33 @@ fn spawnVls() watt.Pid
 //! Spawn a language server and wait for it to exit cleanly.
 fn loop()
 {
-	pid: watt.Pid;
-	retval: i32;
-	do {
-		pid = spawnVls();
-		retval = pid.wait();
-		if (retval != 0) {
-			watt.error.writeln("VlsController: vls crashed, relaunching vls process.");
-			watt.error.flush();
+	pool := new AsyncProcessPool();
+	scope (exit) pool.cleanup();
+	vls: AsyncProcess;
+
+	retval: u32 = 1;
+
+	fn report(process: AsyncProcess, reason: AsyncProcessPool.InterruptReason)
+	{
+		if (reason == AsyncProcessPool.InterruptReason.ProcessComplete) {
+			if (process.closedRetval == 0) {
+				retval = process.closedRetval;
+			} else {
+				watt.error.writeln("VlsController: vls crashed, relaunching vls process.");
+				watt.error.flush();
+				vls = pool.respawn(process, "vls.exe", null);
+			}
+		} else if (reason == AsyncProcessPool.InterruptReason.ReadComplete) {
+			str := process.readResult();
+			lsp.send(str);
 		}
+	}
+
+	vls = pool.spawn(report, "vls.exe", null);
+
+	do {
+		line := watt.input.readln();
+		vls.writeln(line);
+		pool.waitOnce();
 	} while (retval != 0);
 }
