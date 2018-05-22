@@ -15,6 +15,7 @@ import watt.process;
 import watt.conv;
 import watt.text.utf;
 import watt.text.sink;
+import watt.io.streams;
 
 /*!
  * Write and read to long lived process's stdin and stdout.  
@@ -104,18 +105,23 @@ public:
 	fn loop()
 	{
 		while (mRunning) {
-			waitOnce();
+			wait(INFINITE);
 		}
 	}
 
-	fn waitOnce()
+	/*!
+	 * Wait for `ms` milliseconds, or for an event, whichever comes
+	 * first.
+	 */
+	fn wait(ms: u32)
 	{
 		foreach (process; mProcesses) {
 			if (process.mDead) {
 				process.mReportDelegate(process, InterruptReason.ProcessComplete);
+				return;
 			}
 		}
-		SleepEx(INFINITE, TRUE);
+		SleepEx(ms, TRUE);
 	}
 
 private:
@@ -137,7 +143,7 @@ private:
  * blocking call. `read` is wired to the child's stdout, and uses
  * asynchronous IO.
  */
-class AsyncProcess
+class AsyncProcess : OutputStream
 {
 public:
 	enum BufSize = 1024;
@@ -152,6 +158,20 @@ public:
 		zeroOverlapped();
 		startRead();
 		return str;
+	}
+
+public:
+	override fn close()
+	{
+	}
+
+	override @property fn isOpen() bool
+	{
+		return !mDead;
+	}
+
+	override fn flush()
+	{
 	}
 
 private:
@@ -230,7 +250,7 @@ public:
 	 * Write a single character to the process.  
 	 * The process can read this from stdin.
 	 */
-	fn put(c: dchar)
+	override fn put(c: dchar)
 	{
 		write(encode(c));
 	}
@@ -239,19 +259,9 @@ public:
 	 * Write a string to the process.  
 	 * The process can read this from stdin.
 	 */
-	fn write(s: scope const(char)[])
+	override fn write(s: scope const(char)[])
 	{
 		writeFile(cast(LPCVOID)s.ptr, cast(DWORD)s.length);
-	}
-
-	/*!
-	 * Write a string and a newline character to the process.  
-	 * The process can read this from stdin.
-	 */
-	fn writeln(s: scope const(char)[])
-	{
-		write(s);
-		put('\n');
 	}
 
 private:
