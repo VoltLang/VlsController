@@ -6,6 +6,7 @@ import core.rt.thread;
 import lsp = vls.lsp;
 import watt = [watt.path, watt.io, watt.io.file, watt.io.seed, watt.text.string,
 	watt.process.spawn, watt.process.environment, watt.math.random];
+import json = watt.json;
 import vlsc.util.aio;
 import inputThread = vlsc.inputThread;
 import streams = watt.io.streams;
@@ -44,10 +45,11 @@ fn loop()
 	pool := new AsyncProcessPool();
 	scope (exit) pool.cleanup();
 	vls: AsyncProcess;
+	buildServer: AsyncProcess;
 
 	retval: u32 = 1;
 
-	fn report(process: AsyncProcess, reason: AsyncProcessPool.InterruptReason)
+	fn vlsReport(process: AsyncProcess, reason: AsyncProcessPool.InterruptReason)
 	{
 		if (reason == AsyncProcessPool.InterruptReason.ProcessComplete) {
 			if (process.closedRetval == 0) {
@@ -66,16 +68,43 @@ fn loop()
 		}
 	}
 
-	
-	vls = pool.spawn(report, "vls.exe", null);
+	fn buildReport(process: AsyncProcess, reason: AsyncProcessPool.InterruptReason)
+	{
+	}
+
+
+	vls = pool.spawn(vlsReport, "vls.exe", null);
+	buildServer = pool.spawn(buildReport, "VlsBuildServer.exe", null); 
 
 	do {
 		message: lsp.LspMessage;
 		if (inputThread.getMessage(out message)) {
-			lsp.send(message.content, vls);
+			ro := new lsp.RequestObject(message.content);
+			if (ro.isBuildMessage()) {
+				lsp.send(message.content, buildServer);
+			} else {
+				lsp.send(message.content, vls);
+			}
 		}
 		pool.wait(ms:10);
 	} while (retval != 0);
+}
+
+fn isBuildMessage(ro: lsp.RequestObject) bool
+{
+	if (ro.methodName != "workspace/executeCommand") {
+		return false;
+	}
+	command := getStringKey(ro.params, "command");
+	if (command is null) {
+		return false;
+	}
+	switch (command) {
+	case "vls.buildProject":
+		return true;
+	default:
+		return false;
+	}
 }
 
 fn skipHeaders(str: string) string
@@ -85,4 +114,27 @@ fn skipHeaders(str: string) string
 		return null;
 	}
 	return str[index .. $];
+}
+
+fn getStringKey(root: json.Value, field: string) string
+{
+	val: json.Value;
+	retval := validateKey(root, field, json.DomType.String, ref val);
+	if (!retval) {
+		return null;
+	}
+	return val.str();
+}
+
+fn validateKey(root: json.Value, field: string, t: json.DomType, ref val: json.Value) bool
+{
+	if (root.type() != json.DomType.Object ||
+		!root.hasObjectKey(field)) {
+		return false;
+	}
+	val = root.lookupObjectKey(field);
+	if (val.type() != t) {
+		return false;
+	}
+	return true;
 }
