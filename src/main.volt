@@ -11,6 +11,8 @@ import vlsc.util.aio;
 import inputThread = vlsc.inputThread;
 import streams = watt.io.streams;
 
+import diagnostics = vlsc.diagnostics;
+
 fn main(args: string[]) i32
 {
 	initLog();
@@ -49,6 +51,8 @@ fn loop()
 
 	retval: u32 = 1;
 
+	// TODO: Make this cleaner, not duplicated nonsense
+
 	fn vlsReport(process: AsyncProcess, reason: AsyncProcessPool.InterruptReason)
 	{
 		if (reason == AsyncProcessPool.InterruptReason.ProcessComplete) {
@@ -64,14 +68,41 @@ fn loop()
 			if (str is null) {
 				return;
 			}
+			if (watt.indexOf(str, "textDocument/publishDiagnostics") > 0) {
+			ro := new lsp.RequestObject(str);
+			if (ro.methodName == "textDocument/publishDiagnostics") {
+				return;
+//				uri := getStringKey(ro.params, "uri");
+//				if (uri !is null) {
+///					diagnostics.emitLanguageServerDiagnostic(uri, str);
+//					return;
+//				}
+			}
+			}
 			lsp.send(str);
 		}
 	}
 
 	fn buildReport(process: AsyncProcess, reason: AsyncProcessPool.InterruptReason)
 	{
+		if (reason == AsyncProcessPool.InterruptReason.ProcessComplete) {
+			watt.error.writeln("VlsController: build server crashed, relaunching process.");
+			watt.error.flush();
+			vls = pool.respawn(process, "VlsBuildServer.exe", null);
+		} else if (reason == AsyncProcessPool.InterruptReason.ReadComplete) {
+			str := skipHeaders(process.readResult());
+			if (str is null) {
+				return;
+			}
+			ro := new lsp.RequestObject(str);
+			if (ro.methodName == "textDocument/publishDiagnostics") {
+				uri := getStringKey(ro.params, "uri");
+				if (uri !is null) {
+					diagnostics.emitBuildServerDiagnostic(uri, str);
+				}
+			}
+		}
 	}
-
 
 	vls = pool.spawn(vlsReport, "vls.exe", null);
 	buildServer = pool.spawn(buildReport, "VlsBuildServer.exe", null); 
