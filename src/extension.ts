@@ -19,7 +19,7 @@ export function activate(context: ExtensionContext) {
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {
         // Register the server for plain text documents
-        documentSelector: ['volt'],
+        documentSelector: [{scheme: 'file', language: 'volt'}],
         synchronize: {
             // Synchronize the setting section 'languageServerExample' to the server
             configurationSection: 'volt',
