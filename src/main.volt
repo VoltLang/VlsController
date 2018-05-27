@@ -127,6 +127,10 @@ fn handleBuildServerRequest(ro: lsp.RequestObject)
 		}
 		lsp.send(lsp.buildShowMessage(lsp.MessageType.Info, new "Build success: ${buildTag}"));
 		break;
+	case "vls/buildPending":
+		buildTag := lsp.getStringKey(ro.params, "buildTag");
+		lsp.send(lsp.buildShowMessage(lsp.MessageType.Warning, new "Old build still running: ${buildTag}"));
+		break;
 	default:
 		break;
 	}
