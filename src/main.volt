@@ -69,14 +69,14 @@ fn loop()
 				return;
 			}
 			if (watt.indexOf(str, "textDocument/publishDiagnostics") > 0) {
-			ro := new lsp.RequestObject(str);
-			if (ro.methodName == "textDocument/publishDiagnostics") {
-				uri := getStringKey(ro.params, "uri");
-				if (uri !is null) {
-					diagnostics.emitLanguageServerDiagnostic(uri, str);
-					return;
+				ro := new lsp.RequestObject(str);
+				if (ro.methodName == "textDocument/publishDiagnostics") {
+					uri := getStringKey(ro.params, "uri");
+					if (uri !is null) {
+						diagnostics.emitLanguageServerDiagnostic(uri, str);
+						return;
+					}
 				}
-			}
 			}
 			lsp.send(str);
 		}
@@ -94,12 +94,7 @@ fn loop()
 				return;
 			}
 			ro := new lsp.RequestObject(str);
-			if (ro.methodName == "textDocument/publishDiagnostics") {
-				uri := getStringKey(ro.params, "uri");
-				if (uri !is null) {
-					diagnostics.emitBuildServerDiagnostic(uri, str);
-				}
-			}
+			handleBuildServerRequest(ro);
 		}
 	}
 
@@ -118,6 +113,27 @@ fn loop()
 		}
 		pool.wait(ms:10);
 	} while (retval != 0);
+}
+
+fn handleBuildServerRequest(ro: lsp.RequestObject)
+{
+	switch (ro.methodName) {
+	case "textDocument/publishDiagnostics":
+		uri := getStringKey(ro.params, "uri");
+		if (uri !is null) {
+			buildTag := getStringKey(ro.params, "buildTag");
+			diagnostics.emitBuildServerDiagnostic(uri, buildTag, ro.originalText);
+		}
+		break;
+	case "vls/buildSuccess":
+		buildTag := getStringKey(ro.params, "buildTag");
+		if (buildTag !is null) {
+			diagnostics.clearBuildTag(buildTag);
+		}
+		break;
+	default:
+		break;
+	}
 }
 
 fn isBuildMessage(ro: lsp.RequestObject) bool

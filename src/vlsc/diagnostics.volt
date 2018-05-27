@@ -28,21 +28,27 @@ fn emitLanguageServerDiagnostic(uri: string, error: string)
  * Emit a build server diagnostic.
  *
  * @Param uri The uri for the file to associate the diagnostic with.
+ * @Param buildTag A tag that ties errors generated from a particular build together.
  * @Param error The JSON LSP error object.
  */
-fn emitBuildServerDiagnostic(uri: string, error: string)
+fn emitBuildServerDiagnostic(uri: string, buildTag: string, error: string)
 {
-	addDiagnostic(uri, DiagnosticSource.BuildServer, error);
+	addDiagnostic(uri, DiagnosticSource.BuildServer, error, buildTag);
 }
 
 /*!
- * Treat `uri` as if no diagnostics have been generated for it.
+ * Remove any diagnostics associated with the given buildTag,
+ * or with no buildTag.  
+ *
+ * Emits a no diagnostic message to the client.
  */
-fn clearDiagnostic(uri: string)
+fn clearBuildTag(buildTag: string)
 {
-	if (p := uri in gLastEmittedDiagnostic) {
-		gLastEmittedDiagnostic.remove(uri);
-		lsp.send(lsp.buildNoDiagnostic(uri));
+	foreach (uri, diagnostic; gLastEmittedDiagnostic) {
+		if (diagnostic.buildTag == buildTag) {
+			gLastEmittedDiagnostic.remove(uri);
+			lsp.send(lsp.buildNoDiagnostic(uri));
+		}
 	}
 }
 
@@ -57,37 +63,39 @@ enum DiagnosticSource
 
 struct Diagnostic
 {
-	global fn create(source: DiagnosticSource, error: string) Diagnostic
+	global fn create(source: DiagnosticSource, error: string, buildTag: string) Diagnostic
 	{
 		d: Diagnostic;
 		d.source = source;
 		d.error = error;
+		d.buildTag = buildTag;
 		return d;
 	}
 
 	source: DiagnosticSource;
 	error: string;
+	buildTag: string;
 }
 
 global gLastEmittedDiagnostic: Diagnostic[string];
 
 // Emit a diagnostic, setting `gLastEmittedDiagnostic`.
-fn emitDiagnostic(uri: string, source: DiagnosticSource, error: string)
+fn emitDiagnostic(uri: string, source: DiagnosticSource, error: string, buildTag: string = null)
 {
 	assert(source != DiagnosticSource.Empty);
 	lsp.send(error);
-	gLastEmittedDiagnostic[uri] = Diagnostic.create(source, error);
+	gLastEmittedDiagnostic[uri] = Diagnostic.create(source, error, buildTag);
 }
 
 // If appropriate, emit a new diagnostic for the given `uri`.
-fn addDiagnostic(uri: string, source: DiagnosticSource, error: string)
+fn addDiagnostic(uri: string, source: DiagnosticSource, error: string, buildTag: string = null)
 {
 	assert(source != DiagnosticSource.Empty);
 	currentSource := getCurrentSource(uri);
 
 	final switch (currentSource) with (DiagnosticSource) {
 	case Empty, LanguageServer:
-		emitDiagnostic(uri, source, error);
+		emitDiagnostic(uri, source, error, buildTag);
 		return;
 	case BuildServer:
 		break;
