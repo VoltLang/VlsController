@@ -123,6 +123,9 @@ fn handleBuildServerRequest(ro: lsp.RequestObject)
 		if (uri !is null) {
 			buildTag := getStringKey(ro.params, "buildTag");
 			diagnostics.emitBuildServerDiagnostic(uri, buildTag, ro.originalText);
+			if (buildTag !is null) {
+				lsp.send(lsp.buildShowMessage(lsp.MessageType.Error, new "Build failure: ${buildTag}"));
+			}
 		}
 		break;
 	case "vls/buildSuccess":
@@ -130,6 +133,7 @@ fn handleBuildServerRequest(ro: lsp.RequestObject)
 		if (buildTag !is null) {
 			diagnostics.clearBuildTag(buildTag);
 		}
+		lsp.send(lsp.buildShowMessage(lsp.MessageType.Info, new "Build success: ${buildTag}"));
 		break;
 	default:
 		break;
