@@ -71,12 +71,11 @@ fn loop()
 			if (watt.indexOf(str, "textDocument/publishDiagnostics") > 0) {
 			ro := new lsp.RequestObject(str);
 			if (ro.methodName == "textDocument/publishDiagnostics") {
-				return;
-//				uri := getStringKey(ro.params, "uri");
-//				if (uri !is null) {
-///					diagnostics.emitLanguageServerDiagnostic(uri, str);
-//					return;
-//				}
+				uri := getStringKey(ro.params, "uri");
+				if (uri !is null) {
+					diagnostics.emitLanguageServerDiagnostic(uri, str);
+					return;
+				}
 			}
 			}
 			lsp.send(str);
