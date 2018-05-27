@@ -71,7 +71,7 @@ fn loop()
 			if (watt.indexOf(str, "textDocument/publishDiagnostics") > 0) {
 				ro := new lsp.RequestObject(str);
 				if (ro.methodName == "textDocument/publishDiagnostics") {
-					uri := getStringKey(ro.params, "uri");
+					uri := lsp.getStringKey(ro.params, "uri");
 					if (uri !is null) {
 						diagnostics.emitLanguageServerDiagnostic(uri, str);
 						return;
@@ -119,9 +119,9 @@ fn handleBuildServerRequest(ro: lsp.RequestObject)
 {
 	switch (ro.methodName) {
 	case "textDocument/publishDiagnostics":
-		uri := getStringKey(ro.params, "uri");
+		uri := lsp.getStringKey(ro.params, "uri");
 		if (uri !is null) {
-			buildTag := getStringKey(ro.params, "buildTag");
+			buildTag := lsp.getStringKey(ro.params, "buildTag");
 			diagnostics.emitBuildServerDiagnostic(uri, buildTag, ro.originalText);
 			if (buildTag !is null) {
 				lsp.send(lsp.buildShowMessage(lsp.MessageType.Error, new "Build failure: ${buildTag}"));
@@ -129,7 +129,7 @@ fn handleBuildServerRequest(ro: lsp.RequestObject)
 		}
 		break;
 	case "vls/buildSuccess":
-		buildTag := getStringKey(ro.params, "buildTag");
+		buildTag := lsp.getStringKey(ro.params, "buildTag");
 		if (buildTag !is null) {
 			diagnostics.clearBuildTag(buildTag);
 		}
@@ -145,7 +145,7 @@ fn isBuildMessage(ro: lsp.RequestObject) bool
 	if (ro.methodName != "workspace/executeCommand") {
 		return false;
 	}
-	command := getStringKey(ro.params, "command");
+	command := lsp.getStringKey(ro.params, "command");
 	if (command is null) {
 		return false;
 	}
@@ -164,27 +164,4 @@ fn skipHeaders(str: string) string
 		return null;
 	}
 	return str[index .. $];
-}
-
-fn getStringKey(root: json.Value, field: string) string
-{
-	val: json.Value;
-	retval := validateKey(root, field, json.DomType.String, ref val);
-	if (!retval) {
-		return null;
-	}
-	return val.str();
-}
-
-fn validateKey(root: json.Value, field: string, t: json.DomType, ref val: json.Value) bool
-{
-	if (root.type() != json.DomType.Object ||
-		!root.hasObjectKey(field)) {
-		return false;
-	}
-	val = root.lookupObjectKey(field);
-	if (val.type() != t) {
-		return false;
-	}
-	return true;
 }
