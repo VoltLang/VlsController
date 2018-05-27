@@ -4,8 +4,8 @@ module main;
 
 import core.rt.thread;
 import lsp = vls.lsp;
-import watt = [watt.path, watt.io, watt.io.file, watt.io.seed, watt.text.string,
-	watt.process.spawn, watt.process.environment, watt.math.random];
+import watt = [watt.path, watt.io, watt.io.file, watt.text.string,
+	watt.process.spawn, watt.process.environment];
 import json = watt.json;
 import vlsc.util.aio;
 import inputThread = vlsc.inputThread;
@@ -15,7 +15,6 @@ import diagnostics = vlsc.diagnostics;
 
 fn main(args: string[]) i32
 {
-	initLog();
 	chdirToExtensionDirectory();
 	loop();
 	return 0;
@@ -25,13 +24,6 @@ fn main(args: string[]) i32
 fn chdirToExtensionDirectory()
 {
 	watt.chdir(watt.dirName(watt.getExecFile()));
-}
-
-fn initLog()
-{
-	rng: watt.RandomGenerator;
-	rng.seed(watt.getHardwareSeedU32());
-	inputPath := watt.getEnv("USERPROFILE") ~ "/Desktop/vlscLog." ~ rng.randomString(4) ~ ".txt";
 }
 
 //! Launch the language server process.
