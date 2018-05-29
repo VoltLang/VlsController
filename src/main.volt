@@ -56,21 +56,22 @@ fn loop()
 				vls = pool.respawn(process, "vls.exe", null);
 			}
 		} else if (reason == AsyncProcessPool.InterruptReason.ReadComplete) {
-			str := skipHeaders(process.readResult());
-			if (str is null) {
-				return;
-			}
-			if (watt.indexOf(str, "textDocument/publishDiagnostics") > 0) {
-				ro := new lsp.RequestObject(str);
-				if (ro.methodName == "textDocument/publishDiagnostics") {
-					uri := lsp.getStringKey(ro.params, "uri");
-					if (uri !is null) {
-						diagnostics.emitLanguageServerDiagnostic(uri, str);
-						return;
+			str := process.readResult();
+			while (str.length != 0) {
+				msg: lsp.LspMessage;
+				str = lsp.parseLspMessage(str, out msg);
+				if (watt.indexOf(msg.content, "textDocument/publishDiagnostics") > 0) {
+					ro := new lsp.RequestObject(msg.content);
+					if (ro.methodName == "textDocument/publishDiagnostics") {
+						uri := lsp.getStringKey(ro.params, "uri");
+						if (uri !is null) {
+							diagnostics.emitLanguageServerDiagnostic(uri, msg.content);
+							return;
+						}
 					}
 				}
+				lsp.send(msg.content);
 			}
-			lsp.send(str);
 		}
 	}
 
@@ -81,12 +82,13 @@ fn loop()
 			watt.error.flush();
 			vls = pool.respawn(process, "VlsBuildServer.exe", null);
 		} else if (reason == AsyncProcessPool.InterruptReason.ReadComplete) {
-			str := skipHeaders(process.readResult());
-			if (str is null) {
-				return;
+			str := process.readResult();
+			while (str.length != 0) {
+				msg: lsp.LspMessage;
+				str = lsp.parseLspMessage(str, out msg);
+				ro := new lsp.RequestObject(msg.content);
+				handleBuildServerRequest(ro);
 			}
-			ro := new lsp.RequestObject(str);
-			handleBuildServerRequest(ro);
 		}
 	}
 
@@ -103,7 +105,7 @@ fn loop()
 				lsp.send(message.content, vls);
 			}
 		}
-		pool.wait(ms:10);
+		pool.wait(ms:1);
 	} while (retval != 0);
 }
 
@@ -151,13 +153,4 @@ fn isBuildMessage(ro: lsp.RequestObject) bool
 	default:
 		return false;
 	}
-}
-
-fn skipHeaders(str: string) string
-{
-	index := watt.indexOf(str, "{");
-	if (index == -1) {
-		return null;
-	}
-	return str[index .. $];
 }

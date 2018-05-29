@@ -146,7 +146,7 @@ private:
 class AsyncProcess : OutputStream
 {
 public:
-	enum BufSize = 1024;
+	enum BufSize = 4096;
 
 public:
 	closedRetval: u32;
@@ -409,7 +409,7 @@ private:
 			toStringz(pipeName),
 			(writePipe ? PIPE_ACCESS_OUTBOUND : PIPE_ACCESS_INBOUND) |
 			FILE_FLAG_OVERLAPPED, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE |
-			PIPE_WAIT, PIPE_UNLIMITED_INSTANCES, 1024, 1024, 0, null);
+			PIPE_WAIT, PIPE_UNLIMITED_INSTANCES, BufSize, BufSize, 0, null);
 		
 		if (cast(i32)handle == INVALID_HANDLE_VALUE) {
 			throw new Exception(new "could not create pipe ${GetLastError()}");
