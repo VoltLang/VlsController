@@ -172,6 +172,11 @@ public:
 
 	override fn flush()
 	{
+		bResult := FlushFileBuffers(mServerOutput);
+		if (bResult == 0) {
+			err := GetLastError();
+			throw new Exception(new "FlushFileBuffers failure ${err}");
+		}
 	}
 
 private:
@@ -363,7 +368,7 @@ private:
 	fn spawn(filename: string, args: string[])
 	{
 		mProcessHandle = spawnProcessWindows(filename, args, mClientInput,
-			mClientOutput, mClientOutput, null);
+			mClientOutput, GetStdHandle(STD_ERROR_HANDLE), null);
 		// We don't need these ends of the pipes.
 		cleanupHandle(ref mClientInput);
 		cleanupHandle(ref mClientOutput);
