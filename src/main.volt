@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: BSL-1.0
 module main;
 
+import core.rt.format : vrt_format_i64;
 import core.rt.thread;
 import lsp = vls.lsp;
 import watt = [watt.path, watt.io, watt.io.file, watt.text.string,
-	watt.process.spawn, watt.process.environment];
+	watt.process.spawn, watt.process.environment, watt.text.sink];
 import json = watt.json;
 import vlsc.util.aio;
 import inputThread = vlsc.inputThread;
@@ -102,7 +103,7 @@ fn loop()
 			ro := new lsp.RequestObject(message.content);
 			if (workspaces.handleRequest(ro)) {
 				continue;
-			} else if (ro.isBuildMessage()) {
+			} else if (handleBuildMessage(ro, ref message)) {
 				lsp.send(message.content, buildServer);
 			} else {
 				lsp.send(message.content, vls);
@@ -145,14 +146,47 @@ fn handleBuildServerRequest(ro: lsp.RequestObject)
 	}
 }
 
-fn isBuildMessage(ro: lsp.RequestObject) bool
+/*!
+ * Is given request a build server request?
+ *
+ * If `ro` is a message that should be passed to the
+ * build server, perform any modifications required
+ * to it and return `true`. Otherwise the request is
+ * untouched, and `false` is returned.
+ */
+fn handleBuildMessage(ro: lsp.RequestObject, ref message: lsp.LspMessage) bool
 {
 	if (ro.methodName != "workspace/executeCommand") {
 		return false;
 	}
 	command := lsp.getStringKey(ro.params, "command");
-	if (command is null) {
+	switch (command) {
+	case "vls.buildProject":
+		return true;
+	case "vls.buildAllProjects":
+		message.content = getBuildAllContent(ro);
+		return true;
+	default:
 		return false;
 	}
-	return watt.startsWith(command, "vls.build") != 0;
+}
+
+fn getBuildAllContent(ro: lsp.RequestObject) string
+{
+	ss: watt.StringSink;
+	ss.sink(`{"jsonrpc":"2.0","id":`);
+	vrt_format_i64(ss.sink, ro.id.integer());
+	ss.sink(`,"method":"workspace/executeCommand","params":{"command":"vls.buildAllProjects","arguments":[{},[]],`);
+	ss.sink(`"workspaceUris":[`);
+	uris := workspaces.getUris();
+	foreach (i, uri; uris) {
+		ss.sink(`"`);
+		ss.sink(uri);
+		ss.sink(`"`);
+		if (i < uris.length - 1) {
+			ss.sink(`,`);
+		}
+	}
+	ss.sink(`]}}`);
+	return ss.toString();
 }

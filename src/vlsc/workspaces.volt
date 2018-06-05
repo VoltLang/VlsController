@@ -37,6 +37,21 @@ fn getUris() string[]
 	return gWorkspaces.values;
 }
 
+/*!
+ * Same as `getUris`, but return as an array of json Values.
+ */
+fn getUrisAsJson() json.Value
+{
+	uris := getUris();
+	vals := new json.Value[](uris.length);
+	for (i: size_t = 0; i < vals.length; ++i) {
+		vals[i].str(uris[i]);
+	}
+	arr: json.Value;
+	arr.array(vals);
+	return arr;
+}
+
 private:
 
 struct Workspace
