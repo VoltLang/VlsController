@@ -151,10 +151,5 @@ fn isBuildMessage(ro: lsp.RequestObject) bool
 	if (command is null) {
 		return false;
 	}
-	switch (command) {
-	case "vls.buildProject":
-		return true;
-	default:
-		return false;
-	}
+	return watt.startsWith(command, "vls.build") != 0;
 }

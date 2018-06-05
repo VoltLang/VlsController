@@ -67,7 +67,11 @@
         "commands": [
             {
                 "command": "vls.buildProject",
-                "title": "Build Project With Battery"
+                "title": "Build This Project"
+            },
+            {
+                "command": "vls.buildAllProjects",
+                "title": "Build All Projects"
             }
         ],
         "menus": {
@@ -75,6 +79,9 @@
                 {
                     "command": "vls.buildProject",
                     "when": "explorerResourceIsFolder"
+                },
+                {
+                    "command": "vls.buildAllProjects"
                 }
             ]
         },
