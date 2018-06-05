@@ -12,6 +12,7 @@ import inputThread = vlsc.inputThread;
 import streams = watt.io.streams;
 
 import diagnostics = vlsc.diagnostics;
+import workspaces  = vlsc.workspaces;
 
 fn main(args: string[]) i32
 {
@@ -99,7 +100,9 @@ fn loop()
 		message: lsp.LspMessage;
 		if (inputThread.getMessage(out message)) {
 			ro := new lsp.RequestObject(message.content);
-			if (ro.isBuildMessage()) {
+			if (workspaces.handleRequest(ro)) {
+				continue;
+			} else if (ro.isBuildMessage()) {
 				lsp.send(message.content, buildServer);
 			} else {
 				lsp.send(message.content, vls);
