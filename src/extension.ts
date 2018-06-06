@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
 import * as net from 'net';
 import * as path from 'path';
 
-import { workspace, Disposable, ExtensionContext } from 'vscode';
+import { workspace, commands, Disposable, ExtensionContext, ProviderResult, Command } from 'vscode';
 import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-languageclient';
 
 // this method is called when your extension is activated
@@ -28,12 +28,18 @@ export function activate(context: ExtensionContext) {
         }
     }
 	
-	// Create the language client and start the client.
-	const disposable = new LanguageClient('Volt Language Server', serverOptions, clientOptions).start();
+    // Create the language client and start the client.
+    const client = new LanguageClient('Volt Language Server', serverOptions, clientOptions);
+    const disposable = client.start();
+
+    const commandDisposable = commands.registerCommand("vls.buildActiveFile", () => {
+        client.sendRequest("workspace/executeCommand", {command:"vls.buildProject", arguments:[{fsPath:vscode.window.activeTextEditor.document.fileName}]});
+    });
 	
 	// Push the disposable to the context's subscriptions so that the 
 	// client can be deactivated on extension deactivation
     context.subscriptions.push(disposable);
+    context.subscriptions.push(commandDisposable);
 }
 
 // this method is called when your extension is deactivated

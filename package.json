@@ -67,11 +67,15 @@
         "commands": [
             {
                 "command": "vls.buildProject",
-                "title": "Build This Project"
+                "title": "Build This Volt Project"
             },
             {
                 "command": "vls.buildAllProjects",
-                "title": "Build All Projects"
+                "title": "Build All Volt Projects"
+            },
+            {
+                "command": "vls.buildActiveFile",
+                "title": "Build The Project Associated With The Active Volt File"
             }
         ],
         "menus": {
@@ -93,7 +97,7 @@
         ],
         "keybindings": [
             {
-                "command": "vls.buildProject",
+                "command": "vls.buildActiveFile",
                 "key": "alt+f6",
                 "when": "editorTextFocus"
             },
