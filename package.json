@@ -90,6 +90,18 @@
                 "language": "volt",
                 "path": "./snippets/volt.json"
             }
+        ],
+        "keybindings": [
+            {
+                "command": "vls.buildProject",
+                "key": "alt+f6",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "vls.buildAllProjects",
+                "key": "alt+f7",
+                "when": "editorTextFocus"
+            }
         ]
     },
     "scripts": {
