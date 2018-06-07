@@ -172,11 +172,10 @@ public:
 
 	override fn flush()
 	{
-		bResult := FlushFileBuffers(mServerOutput);
-		if (bResult == 0) {
-			err := GetLastError();
-			throw new Exception(new "FlushFileBuffers failure ${err}");
-		}
+		/* If we flush sending to child processes, we're likely
+		 * to deadlock. If we want this to flush, we can't write
+		 * on the same thread as we read.
+		 */
 	}
 
 private:
