@@ -6,7 +6,8 @@ import core.rt.format : vrt_format_i64;
 import core.rt.thread;
 import lsp = vls.lsp;
 import watt = [watt.path, watt.io, watt.io.file, watt.text.string,
-	watt.process.spawn, watt.process.environment, watt.text.sink];
+	watt.process.spawn, watt.process.environment, watt.text.sink,
+	watt.text.getopt];
 import json = watt.json;
 import vlsc.util.aio;
 import inputThread = vlsc.inputThread;
@@ -17,6 +18,13 @@ import workspaces  = vlsc.workspaces;
 
 fn main(args: string[]) i32
 {
+	inputFilename: string;
+	if (watt.getopt(ref args, "input", ref inputFilename)) {
+		inputThread.setInputFile(inputFilename);
+	} else {
+		inputThread.setStandardInput();
+	}
+
 	chdirToExtensionDirectory();
 	loop();
 	return 0;
@@ -110,7 +118,7 @@ fn loop()
 			}
 		}
 		pool.wait(ms:1);
-	} while (retval != 0);
+	} while (retval != 0 && !inputThread.done());
 }
 
 fn handleBuildServerRequest(ro: lsp.RequestObject)

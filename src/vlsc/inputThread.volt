@@ -5,22 +5,36 @@
  */
 module vlsc.inputThread;
 
-import io = watt.io;
+import io = [watt.io, watt.io.streams];
 import lsp = vls.lsp;
 import core.rt.thread;
 
-private global gLock: vrt_mutex*;  // This lock covers reading or writing all of the g* stuff here.
-private global gMessage: lsp.LspMessage;
-private global gMessageEmpty: bool = true;
-
-global this()
+fn done() bool
 {
-	gLock = vrt_mutex_new();
+	return gDone;
 }
 
-global ~this()
+/*!
+ * Read input from a file.
+ */
+fn setInputFile(filename: string)
 {
-	vrt_mutex_delete(gLock);
+	vrt_mutex_lock(gLock);
+	scope (exit) vrt_mutex_unlock(gLock);
+	gInputStream = new io.InputFileStream(filename);
+}
+
+/*!
+ * Read input from stdin.
+ */
+fn setStandardInput()
+{
+	/* In a perfect world we'd do this in the global
+	 * constructor, but as it stands there's a chance
+	 * that our global constructor runs *after* watt.io's,
+	 * and io.input could be null.
+	 */
+	gInputStream = io.input;
 }
 
 /*!
@@ -28,12 +42,17 @@ global ~this()
  */
 fn threadFunction()
 {
+	assert(gInputStream !is null);
 	fn listenDg(msg: lsp.LspMessage) bool
 	{
 		insertMessage(msg);
 		return true;
 	}
-	while (lsp.listen(listenDg, io.input)) {
+	while (lsp.listen(listenDg, gInputStream)) {
+	}
+	gDone = true;
+	while (!gMessageEmpty) {
+		vrt_sleep(10);
 	}
 }
 
@@ -56,8 +75,26 @@ fn getMessage(out message: lsp.LspMessage) bool
 	return true;
 }
 
-// Block until we successfully write the message to the slot.
-private fn insertMessage(message: lsp.LspMessage)
+private:
+
+global this()
+{
+	gLock = vrt_mutex_new();
+}
+
+global ~this()
+{
+	vrt_mutex_delete(gLock);
+}
+
+global gLock: vrt_mutex*;  // This lock covers reading or writing all of the g* stuff here.
+global gMessage: lsp.LspMessage;
+global gMessageEmpty: bool = true;
+global gInputStream: io.InputStream;
+global gDone: bool;
+
+//! Block until we successfully write the message to the slot.
+fn insertMessage(message: lsp.LspMessage)
 {
 	do {
 		if (tryInsertMessage(message)) {
@@ -67,8 +104,8 @@ private fn insertMessage(message: lsp.LspMessage)
 	} while (true);
 }
 
-// Write the given message to the slot and return true, or fail and return false.
-private fn tryInsertMessage(message: lsp.LspMessage) bool
+//! Write the given message to the slot and return true, or fail and return false.
+fn tryInsertMessage(message: lsp.LspMessage) bool
 {
 	vrt_mutex_lock(gLock);
 	scope (exit) vrt_mutex_unlock(gLock);
