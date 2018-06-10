@@ -3,3 +3,7 @@
 *.pdb
 **/node_modules
 **/out
+**/.battery
+**/.toolchain
+**/.suo
+*.cmd
