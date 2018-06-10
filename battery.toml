@@ -1,3 +1,4 @@
 name = "VlsController"
 output = "VlsController"
-dependencies = ["watt", "volta.vls.lsp"]
+# volta.lib is just for volta.util.stack, believe it or not.
+dependencies = ["watt", "volta.lib", "volta.vls.lsp"]

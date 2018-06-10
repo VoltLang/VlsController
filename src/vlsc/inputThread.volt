@@ -6,6 +6,7 @@
 module vlsc.inputThread;
 
 import io = [watt.io, watt.io.streams];
+import stack = volta.util.stack;
 import lsp = vls.lsp;
 import core.rt.thread;
 
@@ -51,7 +52,7 @@ fn threadFunction()
 	while (lsp.listen(listenDg, gInputStream)) {
 	}
 	gDone = true;
-	while (!gMessageEmpty) {
+	while (!gMessages.length != 0) {
 		vrt_sleep(10);
 	}
 }
@@ -67,11 +68,11 @@ fn getMessage(out message: lsp.LspMessage) bool
 {
 	vrt_mutex_lock(gLock);
 	scope (exit) vrt_mutex_unlock(gLock);
-	if (gMessageEmpty) {
+	if (gMessages.length == 0) {
 		return false;
 	}
-	message = gMessage.dup;
-	gMessageEmpty = true;
+	top := gMessages.pop();
+	message = top.dup;
 	return true;
 }
 
@@ -88,31 +89,14 @@ global ~this()
 }
 
 global gLock: vrt_mutex*;  // This lock covers reading or writing all of the g* stuff here.
-global gMessage: lsp.LspMessage;
-global gMessageEmpty: bool = true;
+struct MessageStack = mixin stack.Stack!(lsp.LspMessage);
+global gMessages: MessageStack;
 global gInputStream: io.InputStream;
 global gDone: bool;
 
-//! Block until we successfully write the message to the slot.
 fn insertMessage(message: lsp.LspMessage)
-{
-	do {
-		if (tryInsertMessage(message)) {
-			return;
-		}
-		vrt_sleep(10);
-	} while (true);
-}
-
-//! Write the given message to the slot and return true, or fail and return false.
-fn tryInsertMessage(message: lsp.LspMessage) bool
 {
 	vrt_mutex_lock(gLock);
 	scope (exit) vrt_mutex_unlock(gLock);
-	if (!gMessageEmpty) {
-		return false;
-	}
-	gMessage = message;
-	gMessageEmpty = false;
-	return true;
+	gMessages.push(message);
 }

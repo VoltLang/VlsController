@@ -9,6 +9,7 @@
 module vlsc.diagnostics;
 
 import lsp = vls.lsp;
+import outputThread = vlsc.outputThread;
 
 /*!
  * If appropriate, emit a given language server diagnostic.
@@ -47,7 +48,7 @@ fn clearBuildTag(buildTag: string)
 	foreach (uri, diagnostic; gLastEmittedDiagnostic) {
 		if (diagnostic.buildTag == buildTag) {
 			gLastEmittedDiagnostic.remove(uri);
-			lsp.send(lsp.buildNoDiagnostic(uri));
+			outputThread.addTask(lsp.buildNoDiagnostic(uri));
 		}
 	}
 }
@@ -83,7 +84,7 @@ global gLastEmittedDiagnostic: Diagnostic[string];
 fn emitDiagnostic(uri: string, source: DiagnosticSource, error: string, buildTag: string = null)
 {
 	assert(source != DiagnosticSource.Empty);
-	lsp.send(error);
+	outputThread.addTask(error);
 	gLastEmittedDiagnostic[uri] = Diagnostic.create(source, error, buildTag);
 }
 

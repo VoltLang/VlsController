@@ -10,6 +10,8 @@ import watt = [watt.path, watt.io, watt.io.file, watt.text.string,
 	watt.text.getopt];
 import json = watt.json;
 import vlsc.util.aio;
+
+import outputThread = vlsc.outputThread;
 import inputThread = vlsc.inputThread;
 import streams = watt.io.streams;
 
@@ -45,7 +47,9 @@ fn spawnVls() watt.Pid
 //! Spawn a language server and wait for it to exit cleanly.
 fn loop()
 {
-	t := vrt_thread_start_fn(inputThread.threadFunction);
+	ithread := vrt_thread_start_fn(inputThread.threadFunction);
+	othread := vrt_thread_start_fn(outputThread.threadFunction);
+
 	pool := new AsyncProcessPool();
 	scope (exit) pool.cleanup();
 	vls: AsyncProcess;
@@ -80,7 +84,7 @@ fn loop()
 						}
 					}
 				}
-				lsp.send(msg.content);
+				outputThread.addTask(msg.content);
 			}
 		}
 	}
@@ -112,13 +116,17 @@ fn loop()
 			if (workspaces.handleRequest(ro)) {
 				continue;
 			} else if (handleBuildMessage(ro, ref message)) {
-				lsp.send(message.content, buildServer);
+				outputThread.addTask(message.content, buildServer);
 			} else {
-				lsp.send(message.content, vls);
+				outputThread.addTask(message.content, vls);
 			}
 		}
 		pool.wait(ms:1);
 	} while (retval != 0 && !inputThread.done());
+
+	outputThread.stop();
+	vrt_thread_join(ithread);
+	vrt_thread_join(othread);
 }
 
 fn handleBuildServerRequest(ro: lsp.RequestObject)
@@ -130,7 +138,7 @@ fn handleBuildServerRequest(ro: lsp.RequestObject)
 			buildTag := lsp.getStringKey(ro.params, "buildTag");
 			diagnostics.emitBuildServerDiagnostic(uri, buildTag, ro.originalText);
 			if (buildTag !is null) {
-				lsp.send(lsp.buildShowMessage(lsp.MessageType.Error, new "Build failure: ${buildTag}"));
+				outputThread.addTask(lsp.buildShowMessage(lsp.MessageType.Error, new "Build failure: ${buildTag}"));
 			}
 		}
 		break;
@@ -139,15 +147,15 @@ fn handleBuildServerRequest(ro: lsp.RequestObject)
 		if (buildTag !is null) {
 			diagnostics.clearBuildTag(buildTag);
 		}
-		lsp.send(lsp.buildShowMessage(lsp.MessageType.Info, new "Build success: ${buildTag}"));
+		outputThread.addTask(lsp.buildShowMessage(lsp.MessageType.Info, new "Build success: ${buildTag}"));
 		break;
 	case "vls/buildFailure":
 		buildTag := lsp.getStringKey(ro.params, "buildTag");
-		lsp.send(lsp.buildShowMessage(lsp.MessageType.Error, new "Build failure: ${buildTag}"));
+		outputThread.addTask(lsp.buildShowMessage(lsp.MessageType.Error, new "Build failure: ${buildTag}"));
 		break;
 	case "vls/buildPending":
 		buildTag := lsp.getStringKey(ro.params, "buildTag");
-		lsp.send(lsp.buildShowMessage(lsp.MessageType.Warning, new "Old build still running: ${buildTag}"));
+		outputThread.addTask(lsp.buildShowMessage(lsp.MessageType.Warning, new "Old build still running: ${buildTag}"));
 		break;
 	default:
 		break;
