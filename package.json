@@ -3,7 +3,7 @@
     "displayName": "Volt",
     "description": "Volt language support",
     "version": "0.0.1",
-    "publisher": "bhelyer",
+    "publisher": "volt-developers",
     "engines": {
         "vscode": "^1.18.0"
     },
