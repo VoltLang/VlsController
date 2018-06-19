@@ -8,6 +8,7 @@ import lsp = vls.lsp;
 import watt = [watt.path, watt.io, watt.io.file, watt.text.string,
 	watt.process.spawn, watt.process.environment, watt.text.sink,
 	watt.text.getopt, watt.io.streams];
+import monotonic = watt.io.monotonic;
 import json = watt.json;
 import vlsc.util.aio;
 
@@ -160,6 +161,11 @@ fn handleBuildServerRequest(ro: lsp.RequestObject, vlsOutput: watt.OutputStream)
 	case "vls/toolchainPresent":
 		outputThread.addTask(ro.originalText, vlsOutput);
 		break;
+	case "vls/toolchainRetrievalFailure":
+		if (shouldShowDownloadFailureMessage()) {
+			outputThread.addTask(lsp.buildShowMessage(lsp.MessageType.Warning, "Toolchain archive could not be retrieved."));
+		}
+		break;
 	default:
 		break;
 	}
@@ -208,4 +214,40 @@ fn getBuildAllContent(ro: lsp.RequestObject) string
 	}
 	ss.sink(`]}}`);
 	return ss.toString();
+}
+
+private:
+
+global gLastDownloadFailure: i64;
+global gNextDownloadFailure: i64;
+global gStep:                i64;  // seconds
+
+fn shouldShowDownloadFailureMessage() bool
+{
+	if (monotonic.ticks() >= gNextDownloadFailure) {
+		gLastDownloadFailure = monotonic.ticks();
+		nextStep();
+		return true;
+	}
+	return false;
+}
+
+fn nextStep()
+{
+	switch (gStep) {
+	case 0:
+		gStep += 5;
+		break;
+	case 5:
+		gStep += 10;
+		break;
+	case 15:
+		gStep = 60;
+		break;
+	case 60:
+		break;
+	default:
+		assert(false);
+	}
+	gNextDownloadFailure = gLastDownloadFailure + (gStep * monotonic.ticksPerSecond);
 }
