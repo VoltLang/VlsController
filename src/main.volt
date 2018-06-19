@@ -7,7 +7,7 @@ import core.rt.thread;
 import lsp = vls.lsp;
 import watt = [watt.path, watt.io, watt.io.file, watt.text.string,
 	watt.process.spawn, watt.process.environment, watt.text.sink,
-	watt.text.getopt];
+	watt.text.getopt, watt.io.streams];
 import json = watt.json;
 import vlsc.util.aio;
 
@@ -101,7 +101,7 @@ fn loop()
 				msg: lsp.LspMessage;
 				str = lsp.parseLspMessage(str, out msg);
 				ro := new lsp.RequestObject(msg.content);
-				handleBuildServerRequest(ro);
+				handleBuildServerRequest(ro, vls);
 			}
 		}
 	}
@@ -129,7 +129,7 @@ fn loop()
 	vrt_thread_join(othread);
 }
 
-fn handleBuildServerRequest(ro: lsp.RequestObject)
+fn handleBuildServerRequest(ro: lsp.RequestObject, vlsOutput: watt.OutputStream)
 {
 	switch (ro.methodName) {
 	case "textDocument/publishDiagnostics":
@@ -156,6 +156,9 @@ fn handleBuildServerRequest(ro: lsp.RequestObject)
 	case "vls/buildPending":
 		buildTag := lsp.getStringKey(ro.params, "buildTag");
 		outputThread.addTask(lsp.buildShowMessage(lsp.MessageType.Warning, new "Old build still running: ${buildTag}"));
+		break;
+	case "vls/toolchainPresent":
+		outputThread.addTask(ro.originalText, vlsOutput);
 		break;
 	default:
 		break;
