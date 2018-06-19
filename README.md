@@ -16,13 +16,9 @@ Currently VLS is only available for 64 bit Windows systems. Linux 64, and macOS 
 
 Open Visual Studio Code. Press `Ctrl+Shift+X` or  `Cmd+Shift+X` to go the extension pane. Install the VLS extension from there.
 
-It'll work from there, but if you want the best experience, open your settings and fill out the following:
+Upon start up, VLS will try and find a toolchain for building and default library completion, so it may take some time for those features to start working first time.
 
-`volt.pathToVolta`: A string containing the absolute path to the [Volta Compiler Source Code](https://github.com/VoltLang/Volta), for completion of runtime functions.
-
-`volt.pathToWatt`: A string containing the absolute path to the [Watt Standard Library Source Code](https://github.com/VoltLang/Watt), for completion of library functions.
-
-If you've got a library that VLS can't find, you can set package overrides too:
+If you've got a library that VLS can't find, you can set package overrides:
 
 ```json
 additionalPackagePaths": {
