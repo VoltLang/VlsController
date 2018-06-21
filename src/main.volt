@@ -66,8 +66,6 @@ fn loop()
 			if (process.closedRetval == 0) {
 				retval = process.closedRetval;
 			} else {
-				watt.error.writeln("VlsController: vls crashed, relaunching vls process.");
-				watt.error.flush();
 				vls = pool.respawn(process, "vls.exe", null);
 			}
 		} else if (reason == AsyncProcessPool.InterruptReason.ReadComplete) {
@@ -93,8 +91,6 @@ fn loop()
 	fn buildReport(process: AsyncProcess, reason: AsyncProcessPool.InterruptReason)
 	{
 		if (reason == AsyncProcessPool.InterruptReason.ProcessComplete) {
-			watt.error.writeln("VlsController: build server crashed, relaunching process.");
-			watt.error.flush();
 			vls = pool.respawn(process, "VlsBuildServer.exe", null);
 		} else if (reason == AsyncProcessPool.InterruptReason.ReadComplete) {
 			str := process.readResult();
