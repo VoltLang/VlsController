@@ -10,7 +10,7 @@
 module vlsc.outputThread;
 
 import io = [watt.io, watt.io.streams];
-import stack = volta.util.stack;
+import stack = watt.containers.stack;
 import lsp = vls.lsp;
 import core.rt.thread;
 
