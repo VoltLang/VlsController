@@ -13,7 +13,7 @@ import json = watt.json;
 import vlsc.util.aio;
 
 import outputThread = vlsc.outputThread;
-import inputThread = vlsc.inputThread;
+import inputThread = vls.lsp.inputThread;
 import streams = watt.io.streams;
 
 import diagnostics = vlsc.diagnostics;
