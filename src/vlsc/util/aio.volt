@@ -89,27 +89,6 @@ public:
 	}
 
 	/*!
-	 * Break from the `loop`.  
-	 * This won't cause any client processes to quit.  
-	 * If you want them to quit, you'll have to arrange a way of telling them to.
-	 */
-	fn stopLooping()
-	{
-		mRunning = false;
-	}
-
-	/*!
-	 * Report events (read completion, process end) that occur
-	 * to processes managed by this pool.
-	 */
-	fn loop()
-	{
-		while (mRunning) {
-			wait(INFINITE);
-		}
-	}
-
-	/*!
 	 * Wait for `ms` milliseconds, or for an event, whichever comes
 	 * first.
 	 */
