@@ -118,7 +118,6 @@ public:
 		foreach (process; mProcesses) {
 			if (process.mDead) {
 				process.mReportDelegate(process, InterruptReason.ProcessComplete);
-				return;
 			}
 		}
 		SleepEx(ms, TRUE);
