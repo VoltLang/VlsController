@@ -1,12 +1,7 @@
 // Copyright 2018, Bernard Helyer.
 // SPDX-License-Identifier: BSL-1.0
-/*
- * 08:17 <+Prf_Jakob> Also it's okay if the controller is win32 only for now, so
- *                 feel free to hack together Win32 API based Async IO for all
- *                 of this in the controller repo.
- * 08:17 <+Prf_Jakob> I can deal with posix/linux/osx version of it
- */
-module vlsc.util.aio;
+//! Windows implementation of asynchronous IO.
+module vlsc.util.aio.win32;
 
 import core.exception;
 import core.c.string : memset;
@@ -17,6 +12,8 @@ import watt.text.utf;
 import watt.text.sink;
 import watt.io.streams;
 
+import vlsc.util.aio.common;
+
 /*!
  * Write and read to long lived process's stdin and stdout.  
  *
@@ -26,18 +23,6 @@ import watt.io.streams;
  */
 class AsyncProcessPool
 {
-public:
-	//! The reason wait returned.
-	enum InterruptReason
-	{
-		Invalid,            //!< A valid reason was not given. This will not be returned by `wait`.
-		ReadContinues,      //!< A read has started or continues. This will not be returned by `wait`.
-		ReadComplete,       //!< The process has completed a read operation.
-		ProcessComplete,    //!< The process has exited.
-	}
-
-	alias ReportDelegate = scope dg(AsyncProcess, InterruptReason);
-
 private:
 	mProcesses: AsyncProcess[];
 	mRunning: bool = true;
@@ -129,6 +114,7 @@ public:
 public:
 	closedRetval: u32;
 
+public:
 	fn readResult() string
 	{
 		str := mStringSink.toString();
@@ -217,7 +203,7 @@ public:
 	 * If the process is not running, this returns `false`
 	 * and `retval` is set to the return value of the process.
 	 */
-	fn isAlive(out retval: u32) bool
+	override fn isAlive(out retval: u32) bool
 	{
 		bResult := GetExitCodeProcess(mProcessHandle, &retval);
 		if (bResult == 0) {

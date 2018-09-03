@@ -60,15 +60,15 @@ fn loop()
 
 	// TODO: Make this cleaner, not duplicated nonsense
 
-	fn vlsReport(process: AsyncProcess, reason: AsyncProcessPool.InterruptReason)
+	fn vlsReport(process: AsyncProcess, reason: InterruptReason)
 	{
-		if (reason == AsyncProcessPool.InterruptReason.ProcessComplete) {
+		if (reason == InterruptReason.ProcessComplete) {
 			if (process.closedRetval == 0) {
 				retval = process.closedRetval;
 			} else {
 				vls = pool.respawn(process, "vls.exe", null);
 			}
-		} else if (reason == AsyncProcessPool.InterruptReason.ReadComplete) {
+		} else if (reason == InterruptReason.ReadComplete) {
 			str := process.readResult();
 			while (str.length != 0) {
 				msg: lsp.LspMessage;
@@ -88,11 +88,11 @@ fn loop()
 		}
 	}
 
-	fn buildReport(process: AsyncProcess, reason: AsyncProcessPool.InterruptReason)
+	fn buildReport(process: AsyncProcess, reason: InterruptReason)
 	{
-		if (reason == AsyncProcessPool.InterruptReason.ProcessComplete) {
+		if (reason == InterruptReason.ProcessComplete) {
 			vls = pool.respawn(process, "VlsBuildServer.exe", null);
-		} else if (reason == AsyncProcessPool.InterruptReason.ReadComplete) {
+		} else if (reason == InterruptReason.ReadComplete) {
 			str := process.readResult();
 			while (str.length != 0) {
 				msg: lsp.LspMessage;
