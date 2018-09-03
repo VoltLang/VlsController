@@ -50,7 +50,7 @@ public:
 	 * @Param args Command line argument to pass to the process (if any).
 	 * @Returns The `AsyncProcess` object that was created.
 	 */
-	fn spawn(dgt: ReportDelegate, filename: string, args: string[]) AsyncProcess
+	fn spawn(dgt: scope dg(AsyncProcess, InterruptReason), filename: string, args: string[]) AsyncProcess
 	{
 		p := new AsyncProcess(filename, args, this, dgt);
 		p.zeroOverlapped();
@@ -144,7 +144,7 @@ public:
 
 private:
 	mPool: AsyncProcessPool;
-	mReportDelegate: AsyncProcessPool.ReportDelegate;
+	mReportDelegate: scope dg(AsyncProcess, InterruptReason);
 
 	mProcessHandle: HANDLE;
 	/* We keep and manage the handles here, rather than
@@ -167,7 +167,7 @@ public:
 	/*!
 	 * Spawn a process from a path to an executable file.
 	 */
-	this(filename: string, args: string[], pool: AsyncProcessPool, reportDelegate: AsyncProcessPool.ReportDelegate)
+	this(filename: string, args: string[], pool: AsyncProcessPool, reportDelegate: scope dg(AsyncProcess, InterruptReason))
 	{
 		mPool = pool;
 		mReportDelegate = reportDelegate;
@@ -203,7 +203,7 @@ public:
 	 * If the process is not running, this returns `false`
 	 * and `retval` is set to the return value of the process.
 	 */
-	override fn isAlive(out retval: u32) bool
+	fn isAlive(out retval: u32) bool
 	{
 		bResult := GetExitCodeProcess(mProcessHandle, &retval);
 		if (bResult == 0) {
@@ -304,7 +304,7 @@ private:
 		if (bResult == 0) {
 			err := GetLastError();
 			if (!isAlive(out closedRetval)) {
-				mReportDelegate(this, AsyncProcessPool.InterruptReason.ProcessComplete);
+				mReportDelegate(this, InterruptReason.ProcessComplete);
 				return;
 			}
 			throw new Exception(new "WriteFile failure ${err}");
@@ -321,7 +321,7 @@ private:
 			err := GetLastError();
 			retval: u32;
 			if (!isAlive(out closedRetval)) {
-				mReportDelegate(this, AsyncProcessPool.InterruptReason.ProcessComplete);
+				mReportDelegate(this, InterruptReason.ProcessComplete);
 				return;
 			}
 			throw new Exception(new "${functionName} failure ${err}");
