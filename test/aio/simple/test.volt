@@ -25,8 +25,8 @@ fn main(args: string[]) i32
 	adone, bdone: bool;
 	looping := true;
 
-	fn report1(process: AsyncProcess, reason: AsyncProcessPool.InterruptReason) {
-		if (reason == AsyncProcessPool.InterruptReason.ReadComplete) {
+	fn report1(process: AsyncProcess, reason: InterruptReason) {
+		if (reason == InterruptReason.ReadComplete) {
 			str := strip(process.readResult());
 			output.writeln(new "1:${str}"); output.flush();
 			if (str == A1) {
@@ -39,7 +39,7 @@ fn main(args: string[]) i32
 				process.writeln("QUIT");
 			}
 		}
-		if (reason == AsyncProcessPool.InterruptReason.ProcessComplete) {
+		if (reason == InterruptReason.ProcessComplete) {
 			adone = true;
 		}
 		if (adone && bdone) {
@@ -47,8 +47,8 @@ fn main(args: string[]) i32
 		}
 	}
 
-	fn report2(process: AsyncProcess, reason: AsyncProcessPool.InterruptReason) {
-		if (reason == AsyncProcessPool.InterruptReason.ReadComplete) {
+	fn report2(process: AsyncProcess, reason: InterruptReason) {
+		if (reason == InterruptReason.ReadComplete) {
 			str := strip(process.readResult());
 			output.writeln(new "2:${str}"); output.flush();
 			if (str == A2) {
@@ -61,7 +61,7 @@ fn main(args: string[]) i32
 				process.writeln("QUIT");
 			}
 		}
-		if (reason == AsyncProcessPool.InterruptReason.ProcessComplete) {
+		if (reason == InterruptReason.ProcessComplete) {
 			bdone = true;
 		}
 		if (adone && bdone) {
