@@ -11,6 +11,7 @@ import core.c.posix.fcntl;
 import watt.conv;
 import watt.process;
 import watt.text.utf;
+import watt.text.sink;
 import watt.io.streams;
 
 import vlsc.util.aio.common;
@@ -90,7 +91,7 @@ public:
 		nfds: i32;
 		foreach (process; mProcesses) {
 			if (!process.isAlive) {
-				process.mReportDelegate(process, InterruptReason.ProcessComplete);
+				processComplete(process);
 			} else {
 				FD_SET(process.readFd, &readSet);
 				if (process.readFd > nfds) {
@@ -126,15 +127,14 @@ public:
 			if (FD_ISSET(i, &readSet)) {
 				retval--;
 				p := getProcess(i);
-				/* This is obviously wrong.
-				 * TODO: Replace with actual working (for large input sets) code.
-				 */
-				buf := new char[](AsyncProcess.BufSize);
-				n := read(i, cast(void*)buf.ptr, buf.length);
-				if (n <= 0) {
-					throw new Exception("read() failure");
-				}
-				p.mResultString = cast(string)buf[0 .. n];
+				ss: StringSink;
+				n: ssize_t;
+				do {
+					buf: char[AsyncProcess.BufSize];
+					n = read(i, cast(void*)buf.ptr, buf.length);
+					ss.sink(buf[0 .. n]);
+				} while (n == AsyncProcess.BufSize);
+				p.mResultString = ss.toString();
 				readComplete(p);
 			}
 		}
@@ -148,7 +148,10 @@ private:
 
 	fn processComplete(process: AsyncProcess)
 	{
-		process.mReportDelegate(process, InterruptReason.ProcessComplete);
+		if (!process.mDeathReported) {
+			process.mReportDelegate(process, InterruptReason.ProcessComplete);
+			process.mDeathReported = true;
+		}
 	}
 }
 
@@ -198,6 +201,7 @@ private:
 	mParent2Child: i32[2];
 	mChild2Parent: i32[2];
 	mResultString: string;
+	mDeathReported: bool;
 
 public:
 	/*!
