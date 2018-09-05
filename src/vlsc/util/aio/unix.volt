@@ -135,6 +135,7 @@ public:
 					throw new Exception("read() failure");
 				}
 				p.mResultString = cast(string)buf[0 .. n];
+				readComplete(p);
 			}
 		}
 	}
@@ -236,9 +237,9 @@ public:
 		status: i32;
 		if (waitpid(mChildPid, &status, WNOHANG) != 0) {
 			closedRetval = cast(u32)status;
-			return true;
+			return false;
 		}
-		return false;
+		return true;
 	}
 
 	/*!
